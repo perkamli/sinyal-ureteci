@@ -121,6 +121,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
       <div class="presets" id="relax"></div>
       <p class="warn">Bu tonlar müzikte ve meditasyonda geleneksel olarak kullanılır. Belirli bir organa ya da hastalığa iyi geldiği bilimsel olarak kanıtlanmış değildir. Sadece sakinleşmek için dinlenecek bir ses olarak düşün; bir sağlık sorunun varsa doktoruna başvur. Sesi düşük tut.</p>
     </div>
+    <div class="relax" id="organBox">
+      <span class="lbl">Organlara atfedilen frekanslar (alternatif tıp iddiası)</span>
+      <div class="presets" id="organ"></div>
+      <p class="warn">Bu değerler alternatif tıp kaynaklarında dolaşan rakamlardır; kaynaklar birbirini tutmaz. Bir organa iyi geldiğine ya da hastalığı tedavi ettiğine dair bilimsel kanıt yoktur. Tedavinin yerine geçmez. Belirtilerin varsa doktora başvur.</p>
+    </div>
     <div id="controls"></div>
     <div class="dock">
       <div class="dock-row">
@@ -326,6 +331,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
     document.getElementById('relax').appendChild(b);
   });
 
+  [['Mide',110],['Akciğer',220],['Karaciğer',317.83],['Böbrek',319.88],['Kalp',341.3]].forEach(function(o){
+    var b=document.createElement('button'); b.className='chip preset'; b.type='button'; b.innerHTML='<b>'+o[0]+'</b>'+o[1]+' Hz';
+    b.addEventListener('click',function(){ P.tur='sinus'; P.f=o[1]; refresh(true); });
+    document.getElementById('organ').appendChild(b);
+  });
+
   // Frekans satırı
   (function(){
     var row=document.createElement('div'); row.className='row';
@@ -361,7 +372,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
   function refresh(redraw){
     Array.prototype.forEach.call(elTypes.children,function(b){ b.setAttribute('aria-checked', b.dataset.t===P.tur?'true':'false'); });
     var noise=P.tur==='gurultu';
-    rows.f.hidden=noise; elPresets.hidden=noise; document.getElementById('relaxBox').hidden=noise;
+    rows.f.hidden=noise; elPresets.hidden=noise; document.getElementById('relaxBox').hidden=noise; document.getElementById('organBox').hidden=noise;
     document.getElementById('fLbl').textContent=(P.tur==='am'||P.tur==='fm')?'Taşıyıcı frekans':(P.tur==='chirp'?'Başlangıç frekansı':'Frekans');
     document.getElementById('fNum').value=trim(P.f.toFixed(2));
     document.getElementById('fRange').value=logToPos(P.f,1,20000);
