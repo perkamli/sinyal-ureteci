@@ -53,6 +53,8 @@ canvas { display: block; width: 100%; height: 210px; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .panel { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .types, .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.relax { display: grid; gap: 6px; }
+.relax .lbl { font-size: 13px; color: var(--muted); }
 .chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 14px var(--f-body); padding: 0 12px; min-height: 40px; border-radius: 6px; cursor: pointer; }
 .chip[aria-checked="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .preset { min-height: 34px; font-size: 13px; color: var(--muted); }
@@ -114,6 +116,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
   <section class="panel" aria-label="Ayarlar">
     <div class="types" id="types" role="radiogroup" aria-label="Sinyal türü"></div>
     <div class="presets" id="presets"></div>
+    <div class="relax" id="relaxBox">
+      <span class="lbl">Rahatlama sesleri (Solfej frekansları)</span>
+      <div class="presets" id="relax"></div>
+      <p class="warn">Bu tonlar müzikte ve meditasyonda geleneksel olarak kullanılır. Belirli bir organa ya da hastalığa iyi geldiği bilimsel olarak kanıtlanmış değildir. Sadece sakinleşmek için dinlenecek bir ses olarak düşün; bir sağlık sorunun varsa doktoruna başvur. Sesi düşük tut.</p>
+    </div>
     <div id="controls"></div>
     <div class="dock">
       <div class="dock-row">
@@ -313,6 +320,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
     elPresets.appendChild(b);
   });
 
+  [174,285,396,417,528,639,741,852,963].forEach(function(hz){
+    var b=document.createElement('button'); b.className='chip preset'; b.type='button'; b.innerHTML='<b>'+hz+'</b>Hz';
+    b.addEventListener('click',function(){ P.tur='sinus'; P.f=hz; refresh(true); });
+    document.getElementById('relax').appendChild(b);
+  });
+
   // Frekans satırı
   (function(){
     var row=document.createElement('div'); row.className='row';
@@ -348,7 +361,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
   function refresh(redraw){
     Array.prototype.forEach.call(elTypes.children,function(b){ b.setAttribute('aria-checked', b.dataset.t===P.tur?'true':'false'); });
     var noise=P.tur==='gurultu';
-    rows.f.hidden=noise; elPresets.hidden=noise;
+    rows.f.hidden=noise; elPresets.hidden=noise; document.getElementById('relaxBox').hidden=noise;
     document.getElementById('fLbl').textContent=(P.tur==='am'||P.tur==='fm')?'Taşıyıcı frekans':(P.tur==='chirp'?'Başlangıç frekansı':'Frekans');
     document.getElementById('fNum').value=trim(P.f.toFixed(2));
     document.getElementById('fRange').value=logToPos(P.f,1,20000);
