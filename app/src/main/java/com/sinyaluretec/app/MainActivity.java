@@ -1,9 +1,13 @@
 package com.sinyaluretec.app;
 
 import android.app.Activity;
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -12,6 +16,28 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
 
     private WebView web;
+
+    /** Web tarafındaki çal/durdur durumunu ön plan servisine bildirir. */
+    private class SesKoprusu {
+        @JavascriptInterface
+        public void durum(final boolean caliyor) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Intent i = new Intent(MainActivity.this, SesServisi.class);
+                    if (caliyor) {
+                        if (Build.VERSION.SDK_INT >= 26) {
+                            startForegroundService(i);
+                        } else {
+                            startService(i);
+                        }
+                    } else {
+                        stopService(i);
+                    }
+                }
+            });
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,6 +62,23 @@ public class MainActivity extends Activity {
             }
         });
 
+        web.addJavascriptInterface(new SesKoprusu(), "AndroidSes");
+        SesServisi.durdurIstegi = new Runnable() {
+            @Override
+            public void run() {
+                if (web != null) {
+                    web.evaluateJavascript("window.__nativeDurdur && window.__nativeDurdur()", null);
+                }
+            }
+        };
+
+        // Android 13+ bildirim izni (ön plan servisi bildirimi için)
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+        }
+
         web.loadUrl("file:///android_asset/index.html");
     }
 
@@ -50,6 +93,8 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        SesServisi.durdurIstegi = null;
+        stopService(new Intent(this, SesServisi.class));
         if (web != null) {
             web.destroy();
         }

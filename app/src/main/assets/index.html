@@ -430,6 +430,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
   function swapAudio(){ if(!playing) return; var old=src; src=startSrc(); if(old){ try{ old.stop(ctx.currentTime+0.01); }catch(e){} } }
   function setPlaying(on){
     playing=on; btn.textContent=on?'Durdur':'Çal'; btn.setAttribute('aria-pressed',on);
+    try{ if(window.AndroidSes) window.AndroidSes.durum(on); }catch(e){}
   }
   btn.addEventListener('click',function(){
     if (!playing){
@@ -441,7 +442,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
     }
   });
   document.getElementById('vol').addEventListener('input',function(e){ P.vol=+e.target.value; if(playing) gainN.gain.setTargetAtTime(P.vol,ctx.currentTime,0.02); });
-  document.addEventListener('visibilitychange',function(){ if(document.hidden&&playing){ btn.click(); } });
+  /* Arka planda çalmaya devam eder; Android tarafı ön plan servisi ile süreci canlı tutar. */
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden&&playing&&ctx&&ctx.state==='suspended'){ ctx.resume(); } });
+  window.__nativeDurdur=function(){ if(playing) btn.click(); };
 
   /* ---------- CSV ---------- */
   var msgT=null; function say(t){ var m=document.getElementById('msg'); m.textContent=t; }
