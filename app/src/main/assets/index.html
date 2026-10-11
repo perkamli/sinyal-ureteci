@@ -60,6 +60,13 @@ canvas { display: block; width: 100%; height: 210px; }
 .preset { min-height: 34px; font-size: 13px; color: var(--muted); }
 .preset b { font-family: var(--f-mono); font-weight: 500; color: var(--ink); margin-right: 4px; }
 #controls { display: grid; gap: 12px; }
+.saveRow { display: flex; gap: 6px; }
+.saveRow input { flex: 1; min-width: 0; min-height: 40px; font: 400 14px var(--f-body); padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.saved { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden; }
+.saved .chip { border: 0; border-radius: 0; min-height: 36px; font-size: 13px; }
+.saved .chip b { font-family: var(--f-mono); font-weight: 500; margin-left: 6px; color: var(--muted); }
+.saved .del { border: 0; font-family: var(--f-body); border-left: 1px solid var(--line); background: transparent; color: var(--muted); min-width: 40px; font-size: 18px; line-height: 1; cursor: pointer; }
+.saved .del:hover { color: var(--trace2); }
 .row { display: grid; gap: 2px; }
 .row-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .row label, .row .lbl { font-size: 13px; color: var(--muted); }
@@ -125,6 +132,15 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
       <span class="lbl">Organlara atfedilen frekanslar (alternatif tıp iddiası)</span>
       <div class="presets" id="organ"></div>
       <p class="warn">Bu değerler alternatif tıp kaynaklarında dolaşan rakamlardır; kaynaklar birbirini tutmaz. Bir organa iyi geldiğine ya da hastalığı tedavi ettiğine dair bilimsel kanıt yoktur. Tedavinin yerine geçmez. Belirtilerin varsa doktora başvur.</p>
+    </div>
+    <div class="relax" id="savedBox">
+      <span class="lbl">Kayıtlı frekanslarım</span>
+      <div class="saveRow">
+        <input id="saveName" type="text" maxlength="30" placeholder="İsim (ör. Uyku tonu)" aria-label="Frekans için isim" autocomplete="off">
+        <button class="ghost" id="saveBtn" type="button">Kaydet</button>
+      </div>
+      <div class="presets" id="saved"></div>
+      <p class="warn" id="savedHint">Kaydet, şu an ayarlı frekansı yazdığın isimle saklar. Telefonda kalır, uygulamayı kapatsan da silinmez.</p>
     </div>
     <div id="controls"></div>
     <div class="dock">
@@ -337,6 +353,40 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
     document.getElementById('organ').appendChild(b);
   });
 
+  /* Kayıtlı frekanslar: localStorage'da saklanır (WebView'de DOM storage açık). */
+  var SKEY='sinyalUreteci.kayitli', saved=[];
+  try { var raw=JSON.parse(localStorage.getItem(SKEY)||'[]'); if(Array.isArray(raw)) saved=raw.filter(function(o){ return o&&typeof o.n==='string'&&isFinite(o.f); }); } catch(e){}
+  function persist(){ try{ localStorage.setItem(SKEY,JSON.stringify(saved)); return true; }catch(e){ return false; } }
+  function renderSaved(){
+    var box=document.getElementById('saved'); box.innerHTML='';
+    document.getElementById('savedHint').hidden=saved.length>0 ? true : false;
+    saved.forEach(function(o,idx){
+      var w=document.createElement('span'); w.className='saved';
+      var b=document.createElement('button'); b.type='button'; b.className='chip';
+      b.appendChild(document.createTextNode(o.n)); var bf=document.createElement('b'); bf.textContent=fmtHz(o.f); b.appendChild(bf);
+      b.addEventListener('click',function(){ P.f=o.f; if(P.tur==='gurultu') P.tur='sinus'; if(P.tur==='chirp'&&P.f>=P.f2) P.f2=Math.min(20000,P.f*2); refresh(true); say('"'+o.n+'" yüklendi: '+fmtHz(o.f)+'.'); });
+      var d=document.createElement('button'); d.type='button'; d.className='del'; d.textContent='×'; d.setAttribute('aria-label',o.n+' kaydını sil');
+      var armed=false, tmr=null;
+      d.addEventListener('click',function(){
+        if(!armed){ armed=true; d.textContent='Sil?'; d.style.color='var(--trace2)'; d.style.fontSize='12px'; tmr=setTimeout(function(){ armed=false; d.textContent='×'; d.style.color=''; d.style.fontSize=''; },3000); return; }
+        clearTimeout(tmr); saved.splice(idx,1); persist(); renderSaved(); say('"'+o.n+'" silindi.');
+      });
+      w.appendChild(b); w.appendChild(d); box.appendChild(w);
+    });
+  }
+  document.getElementById('saveBtn').addEventListener('click',function(){
+    var inp=document.getElementById('saveName'), n=inp.value.trim();
+    if(!n){ say('Önce kaydetmek için bir isim yaz.'); inp.focus(); return; }
+    var f=Math.round(P.f*100)/100, i, hit=-1;
+    for(i=0;i<saved.length;i++) if(saved[i].n.toLowerCase()===n.toLowerCase()) hit=i;
+    if(hit>=0){ saved[hit]={n:saved[hit].n,f:f}; n=saved[hit].n+' (güncellendi)'; }
+    else saved.push({n:n,f:f});
+    inp.value=''; renderSaved();
+    say(persist() ? '"'+n+'" kaydedildi: '+fmtHz(f)+'.' : 'Kaydedildi ama kalıcı saklanamadı; uygulama kapanınca kaybolabilir.');
+  });
+  document.getElementById('saveName').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('saveBtn').click(); } });
+  renderSaved();
+
   // Frekans satırı
   (function(){
     var row=document.createElement('div'); row.className='row';
@@ -372,7 +422,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--trace); out
   function refresh(redraw){
     Array.prototype.forEach.call(elTypes.children,function(b){ b.setAttribute('aria-checked', b.dataset.t===P.tur?'true':'false'); });
     var noise=P.tur==='gurultu';
-    rows.f.hidden=noise; elPresets.hidden=noise; document.getElementById('relaxBox').hidden=noise; document.getElementById('organBox').hidden=noise;
+    rows.f.hidden=noise; elPresets.hidden=noise; document.getElementById('relaxBox').hidden=noise; document.getElementById('organBox').hidden=noise; document.getElementById('savedBox').hidden=noise;
     document.getElementById('fLbl').textContent=(P.tur==='am'||P.tur==='fm')?'Taşıyıcı frekans':(P.tur==='chirp'?'Başlangıç frekansı':'Frekans');
     document.getElementById('fNum').value=trim(P.f.toFixed(2));
     document.getElementById('fRange').value=logToPos(P.f,1,20000);
